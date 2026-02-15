@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+understanding_cache/
+*.egg-info/
+dist/
+build/
+.eggs/
+coverage.json
+career_simulation.png
+agent_expertise/

@@ -33,9 +33,13 @@ from code_analyzer import (
     ChangeImpact, ExplanationGate
 )
 from test_generator import TestGenerator, TestSuite
-from refactoring_engine import (  # NEW
+from refactoring_engine import (
     RefactoringEngine, RefactoringOpportunity,
     RefactoringPlan, RefactoringType
+)
+from error_analyzer import (
+    ErrorAnalyzer, FailureAnalysis, RecoveryAction,
+    ErrorCategory
 )
 
 
@@ -75,6 +79,7 @@ class ProductionCodingAgent:
         self.orderer = HypothesisOrderer(self.taxonomy)
         self.executor = CodebaseExecutionEngine(workspace_dir)
         self.analyzer = CodeAnalyzer()  # Code understanding
+        self.error_analyzer = ErrorAnalyzer(self.taxonomy, self.knowledge)  # Error recovery
         self.test_gen = None  # Initialized after analysis
         self.refactor_engine = None  # Initialized after analysis
         
@@ -730,6 +735,100 @@ class ProductionCodingAgent:
         else:
             return False, "Could not determine root cause"
     
+    def analyze_and_recover(
+        self,
+        session: WorkSession,
+        test_results: TestResult,
+        original_contents: Optional[Dict[str, str]] = None,
+    ) -> Tuple[bool, str, List[FailureAnalysis]]:
+        """
+        Analyze test failures, suggest and execute recovery.
+
+        Day 5 capability: deep failure analysis + recovery.
+
+        Steps:
+        1. Analyze every failure (stack trace, category, root cause)
+        2. Build failure taxonomy (cluster by category)
+        3. Suggest recovery strategies
+        4. Execute best recovery strategy
+        5. Learn from the outcome
+
+        Returns: (recovered, message, analyses)
+        """
+        print(f"\n{'='*70}")
+        print("ERROR ANALYSIS & RECOVERY (Day 5)")
+        print(f"{'='*70}\n")
+
+        if test_results.failed == 0:
+            print("No failures to analyze.")
+            return True, "No failures", []
+
+        ctx = session.context.to_structured_context()
+        ctx.problem_type = "test_failure"
+
+        # 1. Analyze all failures
+        print(f"Analyzing {test_results.failed} test failure(s)...\n")
+        analyses = self.error_analyzer.analyze_test_failure(
+            test_results, ctx
+        )
+
+        for analysis in analyses:
+            print(f"  [{analysis.severity.name}] {analysis.error_type}: {analysis.error_message}")
+            print(f"    Category: {analysis.category.value}")
+            print(f"    Assumption violated: {analysis.violated_assumption}")
+            if analysis.similar_past_failures:
+                print(f"    Similar past failures: {len(analysis.similar_past_failures)}")
+            if analysis.suggested_fixes:
+                print(f"    Suggested fixes: {', '.join(analysis.suggested_fixes[:2])}")
+            print()
+
+        # 2. Cluster failures
+        clusters = self.error_analyzer.build_failure_taxonomy(analyses)
+        print(f"Failure clusters: {', '.join(f'{k} ({len(v)})' for k, v in clusters.items())}\n")
+
+        # 3. Get recovery strategies for the most severe failure
+        worst = max(analyses, key=lambda a: a.severity.value)
+        strategies = self.error_analyzer.suggest_recovery(
+            worst,
+            has_baseline=session.baseline_tests is not None,
+            has_backup=original_contents is not None,
+        )
+
+        print("Recovery strategies (ordered by confidence):")
+        for i, strat in enumerate(strategies[:3], 1):
+            print(f"  {i}. [{strat.action.value}] {strat.description} ({strat.confidence:.0%})")
+        print()
+
+        # 4. Execute best strategy
+        best = strategies[0]
+        print(f"Executing: {best.description}...")
+
+        recovery_result = self.error_analyzer.execute_recovery(
+            best, original_contents, session.project_path
+        )
+
+        if recovery_result.success:
+            print(f"  {recovery_result.message}")
+        else:
+            print(f"  Recovery failed: {recovery_result.message}")
+        print()
+
+        # 5. Learn from every failure
+        for analysis in analyses:
+            archetype_id = self.error_analyzer.learn_from_failure(
+                analysis, ctx
+            )
+            if archetype_id:
+                session.learnings.append(
+                    f"Failure pattern promoted to archetype: {archetype_id}"
+                )
+
+        # Learn from recovery outcome
+        self.error_analyzer.learn_from_recovery(worst, recovery_result, ctx)
+
+        recovered = recovery_result.success and best.action == RecoveryAction.ROLLBACK
+        return recovered, recovery_result.message, analyses
+
     def _learn_from_failure(
         self,
         session: WorkSession,
@@ -737,33 +836,38 @@ class ProductionCodingAgent:
         how_it_failed: List[str],
         test_results: TestResult
     ):
-        """Record failure patterns for future learning"""
-        
+        """Record failure patterns for future learning (enhanced with Day 5)."""
+
         # Create structured context
         ctx = session.context.to_structured_context()
         ctx.problem_type = "implementation_failure"
-        
-        # Start debug session
-        debug_session = self.taxonomy.start_session(what_failed, ctx)
-        
-        # Add observations
-        for failure in how_it_failed:
-            debug_session.add_observation(failure)
-        
-        # Close with resolution
-        resolution = DebugResolution(
-            root_cause_summary=" | ".join(how_it_failed),
-            evidence=[f.get('error', 'Unknown') for f in test_results.failures],
-            fix_applied="Not yet applied",
-            validated=False
-        )
-        
-        archetype_id = self.taxonomy.close_session(debug_session, resolution)
-        
-        if archetype_id:
-            session.learnings.append(
-                f"Failure pattern matched archetype: {archetype_id}"
+
+        # Use ErrorAnalyzer for deep analysis
+        analyses = self.error_analyzer.analyze_test_failure(test_results, ctx)
+
+        for analysis in analyses:
+            archetype_id = self.error_analyzer.learn_from_failure(analysis, ctx)
+            if archetype_id:
+                session.learnings.append(
+                    f"Failure pattern matched archetype: {archetype_id}"
+                )
+
+        # Fallback: also record via taxonomy directly if no test failures parsed
+        if not analyses:
+            debug_session = self.taxonomy.start_session(what_failed, ctx)
+            for failure in how_it_failed:
+                debug_session.add_observation(failure)
+            resolution = DebugResolution(
+                root_cause_summary=" | ".join(how_it_failed),
+                evidence=[f.get('error', 'Unknown') for f in test_results.failures],
+                fix_applied="Not yet applied",
+                validated=False
             )
+            archetype_id = self.taxonomy.close_session(debug_session, resolution)
+            if archetype_id:
+                session.learnings.append(
+                    f"Failure pattern matched archetype: {archetype_id}"
+                )
     
     def _learn_from_success(
         self,
@@ -840,10 +944,11 @@ class ProductionCodingAgent:
     
     def get_career_summary(self) -> Dict:
         """Summary of accumulated expertise"""
-        
+
         return {
             'knowledge': self.knowledge.get_summary(),
             'taxonomy': self.taxonomy.get_summary(),
+            'error_analysis': self.error_analyzer.get_summary(),
             'sessions_completed': len([
                 s for s in self.active_sessions.values()
                 if s.completed
