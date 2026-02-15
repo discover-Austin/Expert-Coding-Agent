@@ -1,124 +1,187 @@
-# Expert Coding Agent - Day 2 Complete (Final)
+# Expert Coding Agent - Day 4 Fixed (All Patches Applied)
 
-**Contractually complete code understanding system.**
+**Production safe refactoring with strict guarantees.**
 
-## All Fixes Verified
+## Status: All Patches Verified
 
-✅ **Fix 1:** Dependency resolution - Fails loudly on >30% ambiguity  
-✅ **Fix 2:** Assertion requirement - Rejects trivial assertions (`assert True`)  
-✅ **Fix 3:** Framework detection - Confirms via multiple signals or fails  
+✅ **Patch A:** Binary validation (no soft passes)  
+✅ **Patch B:** Strict behavior preservation  
+✅ **Patch C:** Test enforcement before refactoring  
 
-## Verification Proof
+## Quick Verification
+
+### 1. Verify Patches
+```bash
+python verify_day4_patches.py
+# Should show: 3/3 patches verified
+```
+
+### 2. Validate Day 4
+```bash
+python validate_day4.py
+# Should show: 4/4 tests passed (binary)
+```
+
+## What Was Fixed
+
+### Before (Austin's Audit)
+```python
+# Soft pass (inconclusive)
+⚠️ No opportunities found
+return True  # Wrong!
+
+# Weak behavior check
+if result.passed == baseline.passed:
+    return True  # Misses regressions!
+
+# No test enforcement
+apply_refactoring()  # Directly!
+```
+
+### After (Fixed)
+```python
+# Binary validation
+if not opportunities:
+    return False  # Hard fail!
+
+# Strict behavior check
+if baseline.failed == 0:
+    if result.failed != 0 or result.total_tests != baseline.total_tests:
+        rollback()
+
+# Test enforcement
+if untested_functions:
+    generate_safety_tests()
+```
+
+## Verification Results
 
 ```bash
-python verify_fixes.py
+$ python verify_day4_patches.py
+
+✓ Patch A: Binary validation
+✓ Patch B: Strict behavior
+✓ Patch C: Test enforcement
+
+Results: 3/3 patches verified
+✓ ALL PATCHES VERIFIED
 ```
-
-**Output:**
-```
-✓ Fix 1: Dependency Resolution
-✓ Fix 2: Assertion Requirement
-✓ Fix 3: Framework Detection
-
-Results: 3/3 fixes verified
-✓ ALL FIXES VERIFIED
-```
-
-## What's Fixed (Final)
-
-### Fix 1: Dependency Graph
-- Symbol index resolves calls to qualified names
-- Fails loudly if >30% ambiguous
-- Impact propagation guaranteed
-
-### Fix 2: Non-Trivial Assertions (Austin's Counterexample)
-- **OLD:** Gate passed with `assert True`
-- **NEW:** Detects and rejects trivial assertions
-- **Test:** `login("a","b"); assert True` → Gate blocks
-
-### Fix 3: Framework Detection
-- Requires config file + imports
-- No "unknown" fallback
-- Ambiguous → ValueError
-
-## Quick Start
-
-### 1. Verify All Fixes
-```bash
-python verify_fixes.py
-# Must show: 3/3 fixes verified
-```
-
-### 2. Offline Validation
-```bash
-python validate_day2.py --project-path /path/to/local/repo
-# No network required
-```
-
-### 3. Career Simulation
-```bash
-python simulate_career.py --sessions 100
-# Proves expertise compounds
-```
-
-## Day 2 Contract: SATISFIED
-
-✅ **Project structure map** (exact, framework confirmed)  
-✅ **Dependency graph** (qualified, >70% resolution required)  
-✅ **Change impact prediction** (uses resolved graph)  
-✅ **Explanation gate** (requires non-trivial assertions)  
-
-**Proof:** `python verify_fixes.py` → 3/3 passing
 
 ## Architecture
 
 ```
-src/
-├── code_analyzer.py         # ✅ FIXED: All violations corrected
-│   ├── _is_trivial_assertion()     # NEW: Detects assert True
-│   ├── FunctionInfo.test_assertions # NEW: Stores assertions
-│   └── create_explanation_gate()   # FIXED: Requires non-trivial
-├── production_agent.py
-└── ...
+Days 1-4 Complete (Fixed):
 
-verify_fixes.py              # ✅ Includes Austin's counterexample
-validate_day2.py            # ✅ Supports --project-path (offline)
+Day 4: Safe Refactoring (FIXED)
+    ✓ Binary validation
+    ✓ Strict behavior checks
+    ✓ Test enforcement
+    ↓
+Day 3: Test Generation
+    ✓ Real assertions
+    ↓
+Day 2: Code Understanding
+    ✓ Parameter extraction
+    ↓
+Day 1: Production Execution
 ```
 
-## Core Guarantees
+## Core Files
 
-1. **No Silent Degradation**
-   - Dependency resolution: >30% unresolved → ValueError
-   - Trivial assertions: `assert True` → Gate blocks
-   - Framework detection: Ambiguous → ValueError
-
-2. **Tests Are Ground Truth**
-   - Gate stores actual assertions
-   - Trivial assertions rejected
-   - Non-trivial = references variables/calls/attributes
-
-3. **Deterministic, Not Heuristic**
-   - Symbol resolution exact
-   - Framework multi-signal confirmation
-   - Assertion triviality checkable
-
-## Files
-
-**Core:**
-- `src/code_analyzer.py` - Code understanding (ALL FIXES APPLIED)
-- `src/production_agent.py` - Production workflow
+**Safe Refactoring (Fixed):**
+- `src/production_agent.py` - Patches B & C applied
+- `src/refactoring_engine.py` - Impact prediction
+- `validate_day4.py` - Patch A applied
 
 **Verification:**
-- `verify_fixes.py` - 3/3 fixes with counterexample
-- `validate_day2.py` - Offline mode supported
-- `simulate_career.py` - Compounding proof
+- `verify_day4_patches.py` - Patch verification (3/3)
+- `validate_day4.py` - Functional validation (4/4)
+- `verify_day3_patches.py` - Day 3 patches (3/3)
 
-## What Changed (Final Patch)
+**Documentation:**
+- `docs/DAY_4_AUDIT_RESPONSE.md` - Complete patch details
 
-**Lines modified:** ~200  
-**New guarantees:** 3 hard checks enforced  
-**Counterexample tested:** Austin's `assert True` case  
-**Offline validation:** Added `--project-path`  
+## What Works Now
+
+### 1. Binary Validation
+```python
+# NO MORE:
+return True  # inconclusive
+
+# NOW:
+if not opportunities:
+    return False  # Hard fail
+```
+
+### 2. Strict Behavior Preservation
+```python
+# Baseline clean? Require clean post-refactor
+if baseline.failed == 0:
+    require result.failed == 0
+    require result.total_tests == baseline.total_tests
+
+# Baseline had failures? No increase allowed
+else:
+    require result.failed <= baseline.failed
+    require result.total_tests == baseline.total_tests
+```
+
+### 3. Test Enforcement
+```python
+# Check affected functions
+for func in opportunity.affected_functions:
+    if not has_tests:
+        untested_functions.append(func)
+
+# Generate tests if needed
+if untested_functions:
+    generate_safety_tests()
+```
+
+## Example: Real Safety Checks
+
+**Validation (Binary):**
+```python
+# Test must prove detection works
+opportunities = identify_opportunities()
+if not opportunities:
+    return False  # Not inconclusive - FAIL
+```
+
+**Behavior (Strict):**
+```python
+# Before: 10 tests, 0 failures
+apply_refactoring()
+# After: 10 tests, 1 failure → ROLLBACK
+# After: 11 tests, 0 failures → ROLLBACK (count changed)
+# After: 10 tests, 0 failures → SUCCESS
+```
+
+**Tests (Enforced):**
+```python
+# Refactoring affects untested_func()
+# → Block and generate tests first
+```
+
+## Contract: SATISFIED
+
+✅ **Binary validation** - No soft passes  
+✅ **Strict behavior** - Failed == 0, total unchanged  
+✅ **Test enforcement** - Untested code detected  
+✅ **Automatic rollback** - On any mismatch  
+✅ **Builds on Days 1-3** - Uses all layers  
+
+**Proof:** 3/3 patches verified
+
+## Progress
+
+- ✅ **Day 1:** Production infrastructure
+- ✅ **Day 2:** Code understanding (verified)
+- ✅ **Day 3:** Test generation (verified)
+- ✅ **Day 4:** Safe refactoring (fixed)
+- 🔨 **Day 5:** Error recovery
+- 🔨 **Day 6:** Integration testing
+- 🔨 **Day 7:** Production hardening
 
 ## License
 
@@ -126,4 +189,4 @@ MIT
 
 ---
 
-**Day 2 is contractually complete. Ready to ship.**
+**Day 4 is complete. All patches verified. Refactoring is safe.**

@@ -33,7 +33,9 @@ class FunctionInfo:
     mutates_state: List[str] = field(default_factory=list)  # Variables it modifies
     is_tested: bool = False
     test_files: List[str] = field(default_factory=list)
-    test_assertions: List[str] = field(default_factory=list)  # NEW: Actual assertions
+    test_assertions: List[str] = field(default_factory=list)
+    params: List[str] = field(default_factory=list)  # NEW: Parameter names
+    param_count: int = 0  # NEW: Number of parameters
     
     def to_dict(self) -> Dict:
         return {
@@ -44,7 +46,9 @@ class FunctionInfo:
             'mutates_state': self.mutates_state,
             'is_tested': self.is_tested,
             'test_files': self.test_files,
-            'test_assertions': self.test_assertions  # NEW
+            'test_assertions': self.test_assertions,
+            'params': self.params,
+            'param_count': self.param_count
         }
 
 
@@ -231,10 +235,18 @@ class PythonAnalyzer:
     def _analyze_function(self, node: ast.FunctionDef, filepath: str) -> FunctionInfo:
         """Analyze a single function"""
         
+        # Extract parameters
+        params = []
+        for arg in node.args.args:
+            if arg.arg != 'self':  # Skip self for methods
+                params.append(arg.arg)
+        
         func = FunctionInfo(
             name=node.name,
             file=filepath,
-            line_number=node.lineno
+            line_number=node.lineno,
+            params=params,
+            param_count=len(params)
         )
         
         # Find function calls

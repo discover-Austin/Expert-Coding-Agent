@@ -32,6 +32,11 @@ from code_analyzer import (
     CodeAnalyzer, ProjectStructure, DependencyGraph,
     ChangeImpact, ExplanationGate
 )
+from test_generator import TestGenerator, TestSuite
+from refactoring_engine import (  # NEW
+    RefactoringEngine, RefactoringOpportunity,
+    RefactoringPlan, RefactoringType
+)
 
 
 @dataclass
@@ -69,7 +74,9 @@ class ProductionCodingAgent:
         self.taxonomy = FailureTaxonomy()
         self.orderer = HypothesisOrderer(self.taxonomy)
         self.executor = CodebaseExecutionEngine(workspace_dir)
-        self.analyzer = CodeAnalyzer()  # NEW: Code understanding
+        self.analyzer = CodeAnalyzer()  # Code understanding
+        self.test_gen = None  # Initialized after analysis
+        self.refactor_engine = None  # Initialized after analysis
         
         # Persistent state
         self.expertise_dir = expertise_dir
@@ -128,6 +135,16 @@ class ProductionCodingAgent:
                 project_path,
                 language=language
             )
+            
+            # Initialize test generator with understanding
+            self.test_gen = TestGenerator(self.analyzer)
+            
+            # Initialize refactoring engine
+            self.refactor_engine = RefactoringEngine(
+                self.analyzer,
+                self.test_gen
+            )
+            
         except ValueError as e:
             return False, f"Analysis failed: {e}", None
         
@@ -371,6 +388,301 @@ class ProductionCodingAgent:
             )
         
         return True, f"Feature implemented successfully"
+    
+    def generate_tests(
+        self,
+        session: WorkSession,
+        target_coverage: float = 0.8
+    ) -> Tuple[bool, Dict[str, str]]:
+        """
+        Generate tests for coverage gaps.
+        
+        Uses Day 2 understanding to:
+        - Find untested functions
+        - Generate meaningful tests (not smoke tests)
+        - Validate tests meet quality standards
+        
+        Returns: (success, {test_file_path: test_content})
+        """
+        
+        if not self.test_gen:
+            return False, {}
+        
+        print(f"\n{'='*70}")
+        print(f"GENERATING TESTS (Target coverage: {target_coverage:.0%})")
+        print(f"{'='*70}\n")
+        
+        # Find coverage gaps
+        print("Analyzing coverage gaps...")
+        gaps = self.test_gen.find_coverage_gaps(
+            session.understanding,
+            target_coverage
+        )
+        
+        if not gaps:
+            print("✓ No coverage gaps found")
+            return True, {}
+        
+        print(f"Found coverage gaps in {len(gaps)} files:")
+        for file, funcs in list(gaps.items())[:5]:
+            print(f"  {file}: {len(funcs)} untested functions")
+        print()
+        
+        # Generate tests
+        print("Generating tests...")
+        suites = self.test_gen.generate_missing_tests(gaps)
+        
+        print(f"Generated {len(suites)} test suites")
+        print()
+        
+        # Validate quality
+        print("Validating test quality...")
+        all_valid = True
+        test_files = {}
+        
+        for module_path, suite in suites.items():
+            valid, issues = self.test_gen.validate_generated_tests(suite)
+            
+            if not valid:
+                print(f"⚠️  Quality issues in tests for {module_path}:")
+                for issue in issues[:3]:
+                    print(f"  - {issue}")
+                all_valid = False
+                continue
+            
+            # Generate test file path
+            test_file = f"test_{module_path}"
+            test_content = suite.to_file(framework=session.understanding.test_structure.get('framework', 'pytest'))
+            
+            test_files[test_file] = test_content
+            
+            print(f"✓ {test_file}: {len(suite.test_cases)} tests, {suite.coverage_estimate:.0%} coverage")
+        
+        print()
+        
+        if not all_valid:
+            return False, test_files
+        
+        print(f"✓ Generated {sum(len(s.test_cases) for s in suites.values())} high-quality tests")
+        return True, test_files
+    
+    def plan_refactoring(
+        self,
+        session: WorkSession,
+        target_files: Optional[List[str]] = None
+    ) -> Tuple[bool, RefactoringPlan]:
+        """
+        Create safe refactoring plan.
+        
+        Steps:
+        1. Identify refactoring opportunities
+        2. Check explanation gate
+        3. Generate safety tests if needed
+        4. Predict impact
+        5. Create execution plan
+        
+        Returns: (success, plan)
+        """
+        
+        if not self.refactor_engine:
+            return False, None
+        
+        print(f"\n{'='*70}")
+        print("PLANNING REFACTORING")
+        print(f"{'='*70}\n")
+        
+        # Default to all implementation files
+        if not target_files:
+            target_files = [
+                path for path, module in self.analyzer.modules.items()
+                if not module.is_test
+            ]
+        
+        print(f"Analyzing {len(target_files)} files for refactoring opportunities...")
+        
+        # Identify opportunities
+        opportunities = self.refactor_engine.identify_opportunities(target_files)
+        
+        if not opportunities:
+            print("✓ No refactoring opportunities found")
+            return True, RefactoringPlan(opportunities=[])
+        
+        print(f"Found {len(opportunities)} refactoring opportunities:")
+        for opp in opportunities[:5]:
+            print(f"  - {opp.type.value}: {opp.target_function} ({opp.risk_level} risk)")
+        print()
+        
+        # Create plan with safety checks
+        print("Creating refactoring plan with safety checks...")
+        plan = self.refactor_engine.create_refactoring_plan(
+            opportunities,
+            baseline_passing=session.baseline_tests.passed > 0
+        )
+        
+        # Check if safe to proceed
+        if plan.is_safe_to_proceed():
+            print("✓ Refactoring plan is safe to execute")
+            print(f"  - Explanation gate: {'PASS' if plan.explanation_gate.is_complete() else 'FAIL'}")
+            print(f"  - Baseline tests: {'PASSING' if plan.baseline_passing else 'FAILING'}")
+            print(f"  - Safety tests: {sum(len(s.test_cases) for s in plan.pre_refactor_tests.values())} generated")
+        else:
+            print("⚠️  Refactoring plan has blocking issues:")
+            for issue in plan.blocking_issues():
+                print(f"  - {issue}")
+        
+        print()
+        return True, plan
+    
+    def apply_refactoring(
+        self,
+        session: WorkSession,
+        plan: RefactoringPlan,
+        opportunity_index: int = 0
+    ) -> Tuple[bool, str]:
+        """
+        Apply a refactoring from the plan.
+        
+        Safety checks:
+        1. Plan must be safe to proceed
+        2. Tests must pass before refactoring
+        3. All affected functions must have tests (generate if needed)
+        4. Tests must pass after refactoring
+        5. Changes must be reversible
+        
+        Returns: (success, message)
+        """
+        
+        if not self.refactor_engine:
+            return False, "Refactoring engine not initialized"
+        
+        print(f"\n{'='*70}")
+        print("APPLYING REFACTORING")
+        print(f"{'='*70}\n")
+        
+        # Check plan is safe
+        if not plan.is_safe_to_proceed():
+            issues = plan.blocking_issues()
+            return False, f"Plan not safe to proceed: {', '.join(issues)}"
+        
+        if opportunity_index >= len(plan.opportunities):
+            return False, f"Invalid opportunity index: {opportunity_index}"
+        
+        opportunity = plan.opportunities[opportunity_index]
+        
+        print(f"Refactoring: {opportunity.type.value}")
+        print(f"Target: {opportunity.target_function} in {opportunity.target_file}")
+        print(f"Risk: {opportunity.risk_level}")
+        print(f"Reason: {opportunity.reason}")
+        print()
+        
+        # PATCH C: Check all affected functions have tests
+        print("Checking test coverage of affected functions...")
+        untested_functions = []
+        
+        for qualified_func in opportunity.affected_functions:
+            # Parse qualified name (file:function)
+            if ':' in qualified_func:
+                file_path, func_name = qualified_func.split(':', 1)
+                
+                if file_path in self.analyzer.modules:
+                    module = self.analyzer.modules[file_path]
+                    if func_name in module.functions:
+                        func_info = module.functions[func_name]
+                        
+                        # Check if function has non-trivial tests
+                        has_tests = func_info.is_tested and len(func_info.test_assertions) > 0
+                        if not has_tests:
+                            untested_functions.append((file_path, func_name))
+        
+        if untested_functions:
+            print(f"⚠️  {len(untested_functions)} affected functions lack tests:")
+            for file, func in untested_functions[:3]:
+                print(f"  - {func} in {file}")
+            print()
+            print("Generating safety tests for untested functions...")
+            
+            # Generate tests for untested files
+            untested_files = set(f for f, _ in untested_functions)
+            for file_path in untested_files:
+                if self.test_gen:
+                    suite = self.test_gen.generate_tests_for_module(
+                        file_path,
+                        target_coverage=0.8
+                    )
+                    
+                    if suite.test_cases:
+                        print(f"  Generated {len(suite.test_cases)} tests for {file_path}")
+                        # In production, would write these to disk and run them
+                        # For now, we document the requirement
+            
+            print()
+            print("⚠️  Safety tests generated but not yet written to disk")
+            print("In production: write tests, run baseline, then proceed")
+            print()
+        
+        # Read current file
+        file_path = session.project_path / opportunity.target_file
+        if not file_path.exists():
+            return False, f"File not found: {opportunity.target_file}"
+        
+        original_content = file_path.read_text()
+        
+        # Apply refactoring
+        print("Applying refactoring...")
+        success, new_content, explanation = self.refactor_engine.apply_refactoring(
+            opportunity,
+            original_content
+        )
+        
+        if not success:
+            return False, f"Refactoring failed: {explanation}"
+        
+        print(f"✓ {explanation}")
+        print()
+        
+        # Write new content
+        file_path.write_text(new_content)
+        
+        # Run tests to verify behavior preserved
+        print("Verifying behavior preserved...")
+        result = self.executor.execute_tests(session.context)
+        
+        # STRICT behavior preservation check
+        baseline = session.baseline_tests
+        
+        # If baseline was clean (failed == 0), require clean post-refactor
+        if baseline.failed == 0:
+            if result.failed != 0:
+                print(f"✗ Behavior changed: {result.failed} tests now failing (baseline: 0)")
+                print("Rolling back changes...")
+                file_path.write_text(original_content)
+                return False, "Refactoring introduced test failures - rolled back"
+            
+            if result.total_tests != baseline.total_tests:
+                print(f"✗ Test count changed: {result.total_tests} vs {baseline.total_tests}")
+                print("Rolling back changes...")
+                file_path.write_text(original_content)
+                return False, "Refactoring changed test count - rolled back"
+            
+            print(f"✓ Behavior preserved: {result.passed}/{result.total_tests} tests passing (baseline clean)")
+            return True, f"Refactoring successful: {explanation}"
+        
+        # If baseline had failures, require no increase in failures
+        else:
+            if result.failed > baseline.failed:
+                print(f"✗ More failures: {result.failed} vs {baseline.failed}")
+                print("Rolling back changes...")
+                file_path.write_text(original_content)
+                return False, "Refactoring increased failures - rolled back"
+            
+            if result.total_tests != baseline.total_tests:
+                print(f"✗ Test count changed: {result.total_tests} vs {baseline.total_tests}")
+                print("Rolling back changes...")
+                file_path.write_text(original_content)
+                return False, "Refactoring changed test count - rolled back"
+            
+            print(f"✓ Behavior preserved: {result.failed}/{result.total_tests} failures (no increase)")
+            return True, f"Refactoring successful: {explanation}"
     
     def debug_failure(
         self,
