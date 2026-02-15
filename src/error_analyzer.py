@@ -154,6 +154,7 @@ class RecoveryResult:
 # ---------------------------------------------------------------------------
 
 _ERROR_RULES: Dict[str, Tuple[ErrorCategory, str, List[str]]] = {
+    # --- Import errors ---
     'ImportError': (
         ErrorCategory.IMPORT_ERROR,
         "Code assumed a module or name was importable",
@@ -164,72 +165,204 @@ _ERROR_RULES: Dict[str, Tuple[ErrorCategory, str, List[str]]] = {
         "Code assumed a package was installed",
         ["Install missing package", "Check virtual environment", "Fix package name"],
     ),
+    # --- Type errors ---
     'TypeError': (
         ErrorCategory.TYPE_ERROR,
         "Code assumed a value had a different type",
         ["Add type check before operation", "Fix function signature", "Convert type explicitly"],
     ),
+    # --- Attribute errors ---
     'AttributeError': (
         ErrorCategory.ATTRIBUTE_ERROR,
         "Code assumed an object had an attribute it doesn't",
         ["Check for None before access", "Verify object type", "Fix attribute name typo"],
     ),
+    # --- Value errors ---
     'ValueError': (
         ErrorCategory.VALUE_ERROR,
         "Code assumed a value was in an acceptable range or format",
         ["Add input validation", "Handle edge case", "Fix data transformation"],
     ),
+    'UnicodeDecodeError': (
+        ErrorCategory.VALUE_ERROR,
+        "Code assumed text encoding matched actual bytes",
+        ["Specify correct encoding", "Use errors='replace' or 'ignore'", "Detect encoding first"],
+    ),
+    'UnicodeEncodeError': (
+        ErrorCategory.VALUE_ERROR,
+        "Code assumed text could be encoded in target encoding",
+        ["Use UTF-8 encoding", "Handle unencodable characters", "Normalize text first"],
+    ),
+    # --- Index errors ---
     'IndexError': (
         ErrorCategory.INDEX_ERROR,
         "Code assumed a sequence had enough elements",
         ["Add bounds check", "Handle empty sequence", "Fix off-by-one error"],
     ),
+    # --- Key errors ---
     'KeyError': (
         ErrorCategory.KEY_ERROR,
         "Code assumed a key existed in a mapping",
         ["Use .get() with default", "Check key existence first", "Fix key name"],
+    ),
+    # --- Assertion errors ---
+    'AssertionError': (
+        ErrorCategory.ASSERTION_ERROR,
+        "An explicit assertion was violated",
+        ["Fix the condition that violates the assertion", "Update assertion to match new behavior"],
     ),
     'AssertionError': (
         ErrorCategory.ASSERTION_ERROR,
         "An explicit assertion was violated",
         ["Fix the condition that violates the assertion", "Update assertion to match new behavior"],
     ),
+    # --- Runtime errors ---
     'RuntimeError': (
         ErrorCategory.RUNTIME_ERROR,
         "Runtime invariant was broken",
         ["Check for recursive calls", "Fix generator/coroutine usage", "Review logic flow"],
     ),
+    'RecursionError': (
+        ErrorCategory.RUNTIME_ERROR,
+        "Code entered infinite recursion",
+        ["Add base case to recursive function", "Convert to iterative approach", "Increase recursion limit"],
+    ),
+    'StopIteration': (
+        ErrorCategory.RUNTIME_ERROR,
+        "Iterator was exhausted unexpectedly",
+        ["Add length check before next()", "Use default value with next(iter, default)", "Handle empty iterators"],
+    ),
+    'NotImplementedError': (
+        ErrorCategory.RUNTIME_ERROR,
+        "Code called an unimplemented method",
+        ["Implement the abstract method", "Check class hierarchy", "Use correct subclass"],
+    ),
+    # --- Timeout errors ---
     'TimeoutError': (
         ErrorCategory.TIMEOUT,
         "Operation took longer than expected",
         ["Increase timeout", "Optimize slow operation", "Add early termination"],
     ),
+    # --- Permission errors ---
     'PermissionError': (
         ErrorCategory.PERMISSION_ERROR,
         "Code assumed it had access to a resource",
         ["Fix file permissions", "Run with correct privileges", "Check path ownership"],
     ),
+    # --- File errors ---
     'FileNotFoundError': (
         ErrorCategory.FILE_NOT_FOUND,
         "Code assumed a file or directory existed",
         ["Create missing file/directory", "Fix file path", "Add existence check"],
     ),
+    'FileExistsError': (
+        ErrorCategory.FILE_NOT_FOUND,
+        "Code assumed a file did not already exist",
+        ["Add exist_ok=True", "Check existence before creation", "Remove or rename existing file"],
+    ),
+    'IsADirectoryError': (
+        ErrorCategory.FILE_NOT_FOUND,
+        "Code treated a directory as a file",
+        ["Check path type before access", "Fix file path", "Handle directories separately"],
+    ),
+    # --- Connection errors ---
     'ConnectionError': (
         ErrorCategory.CONNECTION_ERROR,
         "Code assumed a network service was reachable",
         ["Check service availability", "Add retry with backoff", "Handle offline gracefully"],
     ),
+    'ConnectionRefusedError': (
+        ErrorCategory.CONNECTION_ERROR,
+        "Target service refused the connection",
+        ["Check if service is running", "Verify port number", "Add retry with backoff"],
+    ),
+    'ConnectionResetError': (
+        ErrorCategory.CONNECTION_ERROR,
+        "Remote server reset the connection",
+        ["Add retry with backoff", "Check for server overload", "Verify request payload size"],
+    ),
+    'BrokenPipeError': (
+        ErrorCategory.CONNECTION_ERROR,
+        "Write to a closed pipe or socket",
+        ["Handle client disconnect gracefully", "Check connection before writing", "Add signal handling"],
+    ),
+    # --- Syntax errors ---
     'SyntaxError': (
         ErrorCategory.SYNTAX_ERROR,
         "Code has a syntax error",
         ["Fix syntax at indicated line", "Check for missing brackets/colons"],
     ),
+    'IndentationError': (
+        ErrorCategory.SYNTAX_ERROR,
+        "Code has inconsistent indentation",
+        ["Fix indentation at indicated line", "Use consistent tabs or spaces"],
+    ),
+    'TabError': (
+        ErrorCategory.SYNTAX_ERROR,
+        "Code mixes tabs and spaces",
+        ["Convert all indentation to spaces", "Configure editor for consistent indentation"],
+    ),
+    # --- Memory errors ---
     'MemoryError': (
         ErrorCategory.MEMORY_ERROR,
         "Operation exceeded available memory",
         ["Process data in chunks", "Reduce data size", "Increase memory limit"],
     ),
+    # --- Concurrency errors ---
+    'BlockingIOError': (
+        ErrorCategory.CONCURRENCY_ERROR,
+        "Non-blocking I/O operation would block",
+        ["Handle EAGAIN/EWOULDBLOCK", "Use select/poll before I/O", "Switch to async I/O"],
+    ),
+    # --- OS / environment errors ---
+    'OSError': (
+        ErrorCategory.RUNTIME_ERROR,
+        "Operating system reported an error",
+        ["Check system resources", "Verify file descriptors", "Handle OS-specific edge cases"],
+    ),
+    'EnvironmentError': (
+        ErrorCategory.RUNTIME_ERROR,
+        "Environment configuration is wrong",
+        ["Check environment variables", "Verify system configuration", "Fix path settings"],
+    ),
+    'OverflowError': (
+        ErrorCategory.VALUE_ERROR,
+        "Numeric result too large to represent",
+        ["Use arbitrary precision (decimal module)", "Clamp input range", "Check for overflow before operation"],
+    ),
+    'ZeroDivisionError': (
+        ErrorCategory.VALUE_ERROR,
+        "Code divided by zero",
+        ["Add zero check before division", "Handle edge case with default value"],
+    ),
+    'ArithmeticError': (
+        ErrorCategory.VALUE_ERROR,
+        "Arithmetic operation failed",
+        ["Validate operands before operation", "Handle numeric edge cases"],
+    ),
 }
+
+
+# ---------------------------------------------------------------------------
+# Extensible error rules — users can register custom exception types
+# ---------------------------------------------------------------------------
+
+_CUSTOM_ERROR_RULES: Dict[str, Tuple[ErrorCategory, str, List[str]]] = {}
+
+
+def register_error_rule(
+    error_name: str,
+    category: ErrorCategory,
+    violated_assumption: str,
+    suggested_fixes: List[str],
+) -> None:
+    """
+    Register a custom error classification rule.
+
+    Allows extending the analyzer for project-specific or framework-specific
+    exceptions (e.g. Django's Http404, SQLAlchemy's IntegrityError).
+    """
+    _CUSTOM_ERROR_RULES[error_name] = (category, violated_assumption, suggested_fixes)
 
 
 # ---------------------------------------------------------------------------
@@ -429,8 +562,16 @@ class ErrorAnalyzer:
         """
         Classify error into category.
 
+        Checks custom rules first (project-specific), then built-in rules,
+        then heuristic fallback.
+
         Returns (category, violated_assumption, default_fixes).
         """
+        # Custom rules take priority (project-specific overrides)
+        if error_type in _CUSTOM_ERROR_RULES:
+            cat, assumption, fixes = _CUSTOM_ERROR_RULES[error_type]
+            return cat, assumption, list(fixes)
+
         if error_type in _ERROR_RULES:
             cat, assumption, fixes = _ERROR_RULES[error_type]
             return cat, assumption, list(fixes)
@@ -595,22 +736,65 @@ class ErrorAnalyzer:
     def build_failure_taxonomy(
         self,
         analyses: List[FailureAnalysis],
+        deduplicate: bool = True,
     ) -> Dict[str, List[FailureAnalysis]]:
         """
-        Cluster failures by root cause category.
+        Cluster failures by root cause category with deduplication.
 
-        Returns {category_name: [analyses in that category]}.
-        This gives a structured view of WHERE the system is breaking.
+        When deduplicate=True, failures with identical (error_type, error_message)
+        are collapsed into a single representative. This prevents N identical
+        failures from inflating cluster sizes and producing false archetype
+        promotions.
+
+        Returns {category_name: [deduplicated analyses in that category]}.
         """
         clusters: Dict[str, List[FailureAnalysis]] = {}
 
-        for analysis in analyses:
-            key = analysis.category.value
-            if key not in clusters:
-                clusters[key] = []
-            clusters[key].append(analysis)
+        if deduplicate:
+            # Deduplicate by (error_type, error_message) within each category
+            seen: Dict[str, Set[Tuple[str, str]]] = {}
+            for analysis in analyses:
+                key = analysis.category.value
+                sig = (analysis.error_type, analysis.error_message)
+
+                if key not in seen:
+                    seen[key] = set()
+                    clusters[key] = []
+
+                if sig not in seen[key]:
+                    seen[key].add(sig)
+                    clusters[key].append(analysis)
+        else:
+            for analysis in analyses:
+                key = analysis.category.value
+                if key not in clusters:
+                    clusters[key] = []
+                clusters[key].append(analysis)
 
         return clusters
+
+    def deduplicate_analyses(
+        self,
+        analyses: List[FailureAnalysis],
+    ) -> List[FailureAnalysis]:
+        """
+        Remove duplicate failure analyses.
+
+        Two analyses are duplicates if they share the same
+        (error_type, error_message, category). Keeps the first occurrence.
+        This prevents the same error triggered by multiple test cases from
+        bloating the knowledge base.
+        """
+        seen: Set[Tuple[str, str, str]] = set()
+        unique = []
+
+        for analysis in analyses:
+            sig = (analysis.error_type, analysis.error_message, analysis.category.value)
+            if sig not in seen:
+                seen.add(sig)
+                unique.append(analysis)
+
+        return unique
 
     # ------------------------------------------------------------------
     # Recovery strategies
@@ -772,19 +956,77 @@ class ErrorAnalyzer:
     # Execute recovery
     # ------------------------------------------------------------------
 
+    def validate_fix_safety(
+        self,
+        strategy: RecoveryStrategy,
+        analysis: FailureAnalysis,
+        explanation_gate_complete: bool = False,
+        affected_tests_exist: bool = False,
+    ) -> Tuple[bool, List[str]]:
+        """
+        Validate that a FIX_AND_RETRY strategy is safe to execute.
+
+        Safety requirements for automatic code changes:
+        1. Error location must be identified (stack frames present)
+        2. Explanation gate must be complete (understand before modifying)
+        3. Affected functions must have test coverage
+        4. Severity must not be CATASTROPHIC (too risky for auto-fix)
+
+        Returns (is_safe, blocking_reasons).
+        """
+        if strategy.action != RecoveryAction.FIX_AND_RETRY:
+            return True, []
+
+        blockers = []
+
+        # Must have error location
+        if not analysis.stack_frames:
+            blockers.append("No stack trace: cannot identify fix location")
+
+        # Must understand the code first (Day 2 explanation gate)
+        if not explanation_gate_complete:
+            blockers.append("Explanation gate incomplete: must understand code before modifying")
+
+        # Must have test coverage for affected code (Day 3 test enforcement)
+        if not affected_tests_exist:
+            blockers.append("No test coverage for affected functions: fix cannot be validated")
+
+        # Cannot auto-fix catastrophic failures (too much blast radius)
+        if analysis.severity == FailureSeverity.CATASTROPHIC:
+            blockers.append("Catastrophic severity: auto-fix too risky, escalate instead")
+
+        return len(blockers) == 0, blockers
+
     def execute_recovery(
         self,
         strategy: RecoveryStrategy,
         original_content: Optional[Dict[str, str]],
         project_path: Optional[Path],
+        explanation_gate_complete: bool = False,
+        affected_tests_exist: bool = False,
+        analysis: Optional[FailureAnalysis] = None,
     ) -> RecoveryResult:
         """
-        Execute a recovery strategy.
+        Execute a recovery strategy with safety validation.
 
         For ROLLBACK: restores original file contents.
+        For FIX_AND_RETRY: validates safety before returning plan.
         For others: returns instructions (actual code changes are
         handled by ProductionCodingAgent).
         """
+        # Safety gate for FIX_AND_RETRY
+        if strategy.action == RecoveryAction.FIX_AND_RETRY and analysis:
+            is_safe, blockers = self.validate_fix_safety(
+                strategy, analysis,
+                explanation_gate_complete, affected_tests_exist,
+            )
+            if not is_safe:
+                return RecoveryResult(
+                    strategy=strategy,
+                    success=False,
+                    message=f"Fix blocked by safety gate: {'; '.join(blockers)}",
+                )
+
         if strategy.action == RecoveryAction.ROLLBACK:
             if original_content and project_path:
                 restored = 0
@@ -936,15 +1178,19 @@ class ErrorAnalyzer:
         Returns summary of:
         - Most common error categories
         - Most frequent violated assumptions
-        - Recovery success rates
         - Severity distribution
+        - Unique vs total failure count (deduplication ratio)
+        - Cluster quality metrics
         """
         if not self._analyses:
             return {
                 'total_failures': 0,
+                'unique_failures': 0,
+                'dedup_ratio': 1.0,
                 'category_counts': {},
                 'severity_distribution': {},
                 'top_violated_assumptions': [],
+                'cluster_quality': {},
             }
 
         category_counts: Dict[str, int] = {}
@@ -952,31 +1198,50 @@ class ErrorAnalyzer:
         assumptions: Dict[str, int] = {}
 
         for analysis in self._analyses:
-            # Categories
             cat = analysis.category.value
             category_counts[cat] = category_counts.get(cat, 0) + 1
 
-            # Severity
             sev = analysis.severity.value
             severity_counts[sev] = severity_counts.get(sev, 0) + 1
 
-            # Assumptions
             assumption = analysis.violated_assumption
             assumptions[assumption] = assumptions.get(assumption, 0) + 1
 
-        # Sort assumptions by frequency
+        # Deduplication stats
+        unique = self.deduplicate_analyses(self._analyses)
+        dedup_ratio = len(unique) / len(self._analyses) if self._analyses else 1.0
+
+        # Cluster quality: for each category, measure how many unique
+        # error signatures exist. A category with many identical errors
+        # has low diversity (good clustering). A category with all unique
+        # errors might be a junk drawer.
+        cluster_quality = {}
+        for cat, count in category_counts.items():
+            cat_analyses = [a for a in self._analyses if a.category.value == cat]
+            cat_unique = self.deduplicate_analyses(cat_analyses)
+            diversity = len(cat_unique) / len(cat_analyses) if cat_analyses else 1.0
+            cluster_quality[cat] = {
+                'total': count,
+                'unique': len(cat_unique),
+                'diversity': round(diversity, 2),
+                'is_coherent': diversity < 0.8,  # Low diversity = good clustering
+            }
+
         top_assumptions = sorted(
             assumptions.items(), key=lambda x: x[1], reverse=True
         )[:5]
 
         return {
             'total_failures': len(self._analyses),
+            'unique_failures': len(unique),
+            'dedup_ratio': round(dedup_ratio, 2),
             'category_counts': category_counts,
             'severity_distribution': severity_counts,
             'top_violated_assumptions': [
                 {'assumption': a, 'count': c}
                 for a, c in top_assumptions
             ],
+            'cluster_quality': cluster_quality,
         }
 
     def get_summary(self) -> Dict:
