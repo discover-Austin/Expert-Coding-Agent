@@ -13,13 +13,14 @@ A Python coding agent that **compounds expertise across debugging sessions** thr
 
 ```
 Expert-Coding-Agent/
-├── src/                           # Core system (~4,650 LOC, 11 modules)
+├── src/                           # Core system (~5,200 LOC, 12 modules)
 │   ├── __init__.py                # Package version
 │   ├── production_agent.py        # Main orchestration layer (Day 1)
 │   ├── codebase_engine.py         # Git ops, test execution, multi-file editing (Day 1)
 │   ├── code_analyzer.py           # AST-based code understanding (Day 2)
 │   ├── test_generator.py          # Coverage gap detection & test creation (Day 3)
 │   ├── refactoring_engine.py      # Safe refactoring with rollback (Day 4)
+│   ├── error_analyzer.py          # Deep failure analysis & recovery (Day 5)
 │   ├── coding_agent.py            # Integration layer with expertise
 │   ├── knowledge_core.py          # Persistent pattern storage & decay
 │   ├── failure_taxonomy.py        # Automatic archetype formation
@@ -38,6 +39,7 @@ Expert-Coding-Agent/
 ├── validate_day2.py               # Binary validation: code understanding
 ├── validate_day3.py               # Binary validation: test generation
 ├── validate_day4.py               # Binary validation: safe refactoring
+├── validate_day5.py               # Binary validation: error recovery & learning
 ├── verify_day3_patches.py         # Patch verification (3/3)
 ├── verify_day4_patches.py         # Patch verification (3/3)
 ├── verify_fixes.py                # All-fixes verification
@@ -49,7 +51,8 @@ Expert-Coding-Agent/
 ## Architecture
 
 ```
-Layer 5: ProductionCodingAgent     — orchestration, expertise integration
+Layer 6: ProductionCodingAgent     — orchestration, expertise integration
+Layer 5: ErrorAnalyzer             — failure analysis, recovery strategies, learning loop
 Layer 4: CodeAnalyzer              — AST parsing, dependency graphs, impact prediction
 Layer 3: CodebaseExecutionEngine   — clone repos, run tests, multi-file editing
 Layer 2: FailureTaxonomy + HypothesisOrderer — pattern learning, Bayesian debugging
@@ -70,6 +73,7 @@ python test_compounding.py
 python validate_day2.py
 python validate_day3.py
 python validate_day4.py
+python validate_day5.py
 
 # Patch verification
 python verify_day3_patches.py    # 3/3 patches
@@ -90,7 +94,7 @@ python demo_production.py
 
 - **Type hints throughout** (PEP 484 style with `Optional`, `List`, `Dict`, `Tuple`)
 - **Dataclasses** for all structured data (`@dataclass`)
-- **Enums** for categories (`PatternCategory`, `RefactoringType`, `OutcomeType`)
+- **Enums** for categories (`PatternCategory`, `RefactoringType`, `OutcomeType`, `ErrorCategory`, `RecoveryAction`)
 - **Naming:** PascalCase classes, snake_case functions/methods, UPPER_CASE constants, `_underscore` prefix for private methods
 - **AST parsing** for code analysis (never regex for structural code understanding)
 - **No external ML/LLM/RAG dependencies** in core — stdlib only
@@ -112,6 +116,7 @@ python demo_production.py
 - **Test enforcement:** refactoring is blocked if affected functions lack test coverage.
 - **Automatic rollback:** any refactoring that changes test counts or introduces failures is rolled back.
 - **Confidence is empirical:** based on validation rate + severity + recency, not opinions.
+- **Error recovery loop:** every failure is analyzed, classified, and fed back into taxonomy + knowledge for future guidance.
 
 ## Implementation Status
 
@@ -119,7 +124,7 @@ python demo_production.py
 - **Day 2** (complete): Code understanding — `code_analyzer.py` with AST parsing, dependency graphs, impact prediction
 - **Day 3** (complete): Test generation — `test_generator.py` with coverage gaps, assertion quality checks
 - **Day 4** (complete): Safe refactoring — `refactoring_engine.py` with rollback guarantees
-- **Day 5** (planned): Error recovery
+- **Day 5** (complete): Error recovery & learning — `error_analyzer.py` with failure analysis, recovery strategies, learning loop
 - **Day 6** (planned): Integration testing
 - **Day 7** (planned): Production hardening
 
